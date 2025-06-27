@@ -140,6 +140,31 @@ function saveLanguagePreferences(source, target) {
     localStorage.setItem('translatorPrefs', JSON.stringify({ source, target }));
 }
 
+// Get extension settings from storage
+async function getExtensionSettings() {
+    try {
+        const result = await chrome.storage.sync.get({
+            defaultSourceLang: 'auto',
+            defaultTargetLang: 'fa',
+            fontSize: '14',
+            multiLangDetection: true,
+            textToSpeech: true,
+            slowSpeechRate: 0.25
+        });
+        return result;
+    } catch (error) {
+        console.error('Error loading extension settings:', error);
+        return {
+            defaultSourceLang: 'auto',
+            defaultTargetLang: 'fa',
+            fontSize: '14',
+            multiLangDetection: true,
+            textToSpeech: true,
+            slowSpeechRate: 0.25
+        };
+    }
+}
+
 // Create the icon element
 function createIcon() {
     if (selectionIcon) {
@@ -499,8 +524,9 @@ async function showPopup() {
     isTranslating = false;
     detectedLanguage = '';
     
-    // Get saved preferences
+    // Get saved preferences and extension settings
     const prefs = getLanguagePreferences();
+    const settings = await getExtensionSettings();
     
     // Check if we're in an editable area using stored element with validation
     const isInEditableArea = isStoredElementValid();
@@ -576,19 +602,21 @@ async function showPopup() {
                 </div>
                 <!-- Speech Buttons -->
                 <div style="display: flex; gap: 4px;">
-                    <button id="speak-normal" style="background: #f3f4f6; border: 1px solid #d1d5db; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="Normal speed">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                    </button>
-                    <button id="speak-slow" style="background: #f3f4f6; border: 1px solid #d1d5db; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; position: relative;" title="Slow speed (0.25x)">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                        </svg>
-                        <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">0.25x</span>
-                    </button>
+                    ${settings.textToSpeech ? `
+                        <button id="speak-normal" style="background: #f3f4f6; border: 1px solid #d1d5db; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="Normal speed">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            </svg>
+                        </button>
+                        <button id="speak-slow" style="background: #f3f4f6; border: 1px solid #d1d5db; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; position: relative;" title="Slow speed (0.25x)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            </svg>
+                            <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">0.25x</span>
+                        </button>
+                    ` : ''}
                 </div>
             </div>
             
@@ -751,24 +779,29 @@ async function detectAndShowMultipleLanguages() {
             multiLangSection.style.display = 'block';
             singleLangSection.style.display = 'none';
             
-            // Generate HTML for each language with speech buttons
+            // Get settings for speech buttons
+            const settings = await getExtensionSettings();
+            
+            // Generate HTML for each language with conditional speech buttons
             languageSegments.innerHTML = segments.map((segment, index) => `
                 <div class="lang-item">
                     <span class="lang-name">${segment.languageName}</span>
                     <div class="lang-buttons">
-                        <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', 1)" title="Normal speed">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                            </svg>
-                        </button>
-                        <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', 0.25)" title="Slow speed" style="position: relative;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                            </svg>
-                            <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">0.25x</span>
-                        </button>
+                        ${settings.textToSpeech ? `
+                            <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', 1)" title="Normal speed">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                </svg>
+                            </button>
+                            <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', 0.25)" title="Slow speed" style="position: relative;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                </svg>
+                                <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">0.25x</span>
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             `).join('');
@@ -1526,7 +1559,7 @@ async function showHistoryDialog() {
                         Clear All
                     </button>
                 ` : ''}
-                <button id="close-history-btn" style="background: #6b7280; color: white; border: none; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s ease;">×</button>
+                <button id="close-history-btn" style="background: transparent; color: #6b7280; border: none; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s ease;">×</button>
             </div>
         </div>
         
@@ -1622,6 +1655,17 @@ async function showHistoryDialog() {
     `;
     document.head.appendChild(style);
 }
+
+// Listen for settings updates from options page
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'settingsUpdated') {
+        console.log('Settings updated:', message.settings);
+        // If popup is open, refresh it with new settings
+        if (popup && popup.style.opacity === '1') {
+            showPopup();
+        }
+    }
+});
 
 // Initialize
 createIcon(); 
