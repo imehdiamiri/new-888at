@@ -1559,7 +1559,12 @@ async function showHistoryDialog() {
                         Clear All
                     </button>
                 ` : ''}
-                <button id="close-history-btn" style="background: transparent; color: #6b7280; border: none; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s ease;">×</button>
+                <button id="close-history-btn" style="background: transparent; color: #6b7280; border: none; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="Close">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
         </div>
         
@@ -1650,7 +1655,8 @@ async function showHistoryDialog() {
         }
         
         #close-history-btn:hover {
-            background: #4b5563 !important;
+            background: #f3f4f6 !important;
+            color: #374151 !important;
         }
     `;
     document.head.appendChild(style);
