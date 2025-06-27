@@ -127,4 +127,4 @@ This project is open source and available under the MIT License.
 
 ---
 
-**Made with ❤️ for better web browsing experience** 
+**Made with ❤️ for better web browsing experience**
