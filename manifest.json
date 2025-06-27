@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Text Selection Icon",
+  "version": "1.0",
+  "description": "Shows a minimal icon when text is selected on any webpage with translation feature",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://translate.googleapis.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ]
+} 

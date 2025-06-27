@@ -1,0 +1,11 @@
+/* Additional styles for selection icon */
+#selection-icon {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#selection-icon:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+} 

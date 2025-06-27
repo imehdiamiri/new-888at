@@ -1,0 +1,11 @@
+body {
+  min-width: 200px;
+  font-family: Arial, sans-serif;
+}
+button {
+  margin: 5px;
+}
+#result {
+  margin-top: 10px;
+  color: green;
+} 
