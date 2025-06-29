@@ -19,7 +19,7 @@ function setupEventListeners() {
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => {
-            console.log('Opening settings...');
+    
             chrome.runtime.openOptionsPage();
             window.close(); // Close popup after opening settings
         });
@@ -29,14 +29,14 @@ function setupEventListeners() {
     const historyBtn = document.getElementById('history-btn');
     if (historyBtn) {
         historyBtn.addEventListener('click', () => {
-            console.log('Opening history...');
+    
             // Send message to content script to show history
             chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                 chrome.tabs.sendMessage(tabs[0].id, {
                     action: 'showHistory'
                 }, function(response) {
                     if (chrome.runtime.lastError) {
-                        console.log('Could not send message to content script');
+                        // Silent error handling
                     }
                 });
             });
@@ -48,14 +48,13 @@ function setupEventListeners() {
     const testBtn = document.getElementById('test-btn');
     if (testBtn) {
         testBtn.addEventListener('click', () => {
-            console.log('Testing extension...');
+
             // Send test message to content script
             chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                 chrome.tabs.sendMessage(tabs[0].id, {
                     action: 'testExtension'
                 }, function(response) {
                     if (chrome.runtime.lastError) {
-                        console.log('Could not send message to content script');
                         showStatus('Please refresh the page and try again', 'error');
                     } else {
                         showStatus('Extension is working correctly!', 'success');
@@ -117,7 +116,7 @@ function updateUI(tab) {
                 statusElement.textContent = `Active on ${domain}`;
             }
         } catch (error) {
-            console.log('Could not parse URL:', tab.url);
+
         }
     }
 }

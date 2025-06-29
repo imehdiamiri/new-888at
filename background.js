@@ -8,7 +8,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({success: true});
     } else if (request.action === 'settingsChanged') {
         // Broadcast settings change to all tabs
-        console.log('Settings changed, broadcasting to all tabs');
         chrome.tabs.query({}, (tabs) => {
             tabs.forEach(tab => {
                 chrome.tabs.sendMessage(tab.id, {
@@ -28,7 +27,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Handle extension installation
 chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') {
-        console.log('888 AI Translation Extension installed');
+
         // Set default settings on install
         chrome.storage.sync.set({
             defaultSourceLang: 'auto',
@@ -39,15 +38,13 @@ chrome.runtime.onInstalled.addListener((details) => {
             slowSpeechRate: 0.25
         });
     } else if (details.reason === 'update') {
-        console.log('888 AI Translation Extension updated');
+
     }
 });
 
 // Listen for storage changes and broadcast to content scripts
 chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'sync') {
-        console.log('Storage changed:', changes);
-        
         // Get current settings and broadcast to all tabs
         chrome.storage.sync.get({
             defaultSourceLang: 'auto',
@@ -57,7 +54,6 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
             textToSpeech: true,
             slowSpeechRate: 0.25
         }, (settings) => {
-            console.log('Broadcasting updated settings to all tabs:', settings);
             chrome.tabs.query({}, (tabs) => {
                 tabs.forEach(tab => {
                     chrome.tabs.sendMessage(tab.id, {

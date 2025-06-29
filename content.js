@@ -127,15 +127,13 @@ const languages = {
 async function getLanguagePreferences() {
     // Always use extension settings instead of localStorage
     const settings = currentSettings || await getExtensionSettings();
-    console.log('Getting language preferences from settings:', settings);
     return { 
         source: settings.defaultSourceLang || 'auto', 
         target: settings.defaultTargetLang || 'fa' 
     };
 }
 
-// Language preferences are now saved through extension settings only
-// No need for localStorage - settings are managed through options page
+
 
 // Get extension settings from storage
 async function getExtensionSettings() {
@@ -244,13 +242,12 @@ function createIcon() {
                 }
             }, 100);
         }
-    } catch (error) {
-        console.log('Error appending selection icon:', error);
+            } catch (error) {
         // Fallback to documentElement
         try {
             document.documentElement.appendChild(selectionIcon);
         } catch (fallbackError) {
-            console.log('Fallback append also failed:', fallbackError);
+            // Silent fallback
         }
     }
 }
@@ -454,15 +451,13 @@ function speakLanguageSegment(text, lang, rate = 1) {
     }
 }
 
+// Make function globally accessible for HTML onclick
+window.speakLanguageSegment = speakLanguageSegment;
+
 // Text selection change handler
 function handleSelectionChange() {
     setTimeout(() => {
-        // Debug logging for Google Keep and similar sites
-        console.log('=== Selection Change Debug ===');
-        console.log('Current URL:', window.location.href);
-        console.log('Document ready state:', document.readyState);
-        console.log('Selection icon exists:', !!selectionIcon);
-        console.log('Selection icon in DOM:', selectionIcon ? document.contains(selectionIcon) : false);
+
         
         const activeElement = document.activeElement;
         let hasSelection = false;
@@ -479,8 +474,7 @@ function handleSelectionChange() {
                 selectedFromElement = activeElement;
                 originalSelectionStart = activeElement.selectionStart;
                 originalSelectionEnd = activeElement.selectionEnd;
-                console.log('Selection detected in input/textarea:', activeElement);
-                console.log('Stored selection positions:', originalSelectionStart, 'to', originalSelectionEnd);
+
             }
         }
         
@@ -496,7 +490,7 @@ function handleSelectionChange() {
                     selectedFromElement = null;
                     originalSelectionStart = null;
                     originalSelectionEnd = null;
-                    console.log('Selection detected in regular text (not editable)');
+
                 }
             }
         }
@@ -504,7 +498,7 @@ function handleSelectionChange() {
         if (hasSelection) {
             // Force recreate icon if it doesn't exist or not in DOM
             if (!selectionIcon || !document.contains(selectionIcon)) {
-                console.log('Icon missing, recreating...');
+
                 createIcon();
             }
             showIcon();
@@ -539,25 +533,21 @@ function isStoredElementValid() {
     
     // Check if element is still in DOM
     if (!document.contains(selectedFromElement)) {
-        console.log('Stored element is no longer in DOM');
         return false;
     }
     
     // Check if it's still an input/textarea
     if (!isInputElement(selectedFromElement)) {
-        console.log('Stored element is no longer an input/textarea');
         return false;
     }
     
     // Check if selection positions are still valid
     if (originalSelectionStart === null || originalSelectionEnd === null) {
-        console.log('Selection positions are null');
         return false;
     }
     
     // Check if element still has the expected text length
     if (selectedFromElement.value.length < originalSelectionEnd) {
-        console.log('Element text is shorter than expected selection end');
         return false;
     }
     
@@ -587,12 +577,7 @@ async function showPopup() {
     // Check if we're in an editable area using stored element with validation
     const isInEditableArea = isStoredElementValid();
     
-    // Debug logging
-    console.log('Selected from element:', selectedFromElement);
-    console.log('Is stored element valid:', isInEditableArea);
-    console.log('Element tag:', selectedFromElement?.tagName);
-    console.log('Element contentEditable:', selectedFromElement?.contentEditable);
-    console.log('Original selection positions:', originalSelectionStart, 'to', originalSelectionEnd);
+
     
     // Generate replace button HTML ONLY if in editable area
     const replaceButtonHTML = isInEditableArea ? `
@@ -607,8 +592,7 @@ async function showPopup() {
         </button>
     ` : '';
     
-    console.log('Replace button HTML length:', replaceButtonHTML.length);
-    console.log('Will show replace button:', isInEditableArea);
+
     
     // Update popup content
     popup.innerHTML = `
@@ -717,13 +701,7 @@ async function showPopup() {
                 AI Explain
             </button>
             
-            <!-- Correction Toggle (Right) -->
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 10px; color: #6b7280; font-weight: 500;">Correction</span>
-                <div id="correction-toggle" style="width: 32px; height: 16px; background: #e5e7eb; border-radius: 8px; cursor: pointer; position: relative; transition: all 0.3s ease;" title="Toggle correction mode">
-                    <div style="width: 12px; height: 12px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                </div>
-            </div>
+
         </div>
         
         <style>
@@ -761,9 +739,7 @@ async function showPopup() {
                 transform: scale(1.05) !important;
             }
             
-            #correction-toggle:hover {
-                background: #d1d5db !important;
-            }
+
             
             .lang-item {
                 display: flex;
@@ -831,13 +807,10 @@ async function detectAndShowMultipleLanguages() {
     // Check if multi-language detection is enabled
     const settings = currentSettings || await getExtensionSettings();
     if (!settings.multiLangDetection) {
-        console.log('Multi-language detection is disabled');
         return;
     }
     
-    console.log('Detecting multiple languages for text:', currentSelectedText);
     const segments = await detectMultipleLanguages(currentSelectedText);
-    console.log('Detected segments:', segments);
     
     if (segments && segments.length > 1) {
         // Remove any potential duplicates by language code (extra safety)
@@ -848,12 +821,10 @@ async function detectAndShowMultipleLanguages() {
             if (!seenLanguages.has(segment.language)) {
                 seenLanguages.add(segment.language);
                 uniqueSegments.push(segment);
-            } else {
-                console.log('Skipping duplicate language segment:', segment.language);
             }
         }
         
-        console.log('Final unique segments:', uniqueSegments);
+
         
         // Show multi-language section with speech buttons
         const multiLangSection = popup.querySelector('#multi-lang-section');
@@ -889,7 +860,7 @@ async function detectAndShowMultipleLanguages() {
             `).join('');
         }
     } else {
-        console.log('Single language detected or detection failed, using normal mode');
+
     }
 }
 
@@ -1005,14 +976,8 @@ function handleCopyClick() {
 
 // Replace selected text with translation in editable areas
 function replaceSelectedText(translationText) {
-    console.log('Replace function called with text:', translationText);
-    console.log('Selected from element:', selectedFromElement);
-    console.log('Original selection start:', originalSelectionStart);
-    console.log('Original selection end:', originalSelectionEnd);
-    
     // Validate stored element
     if (!isStoredElementValid()) {
-        console.log('Cannot replace: stored element is not valid');
         return;
     }
     
@@ -1020,31 +985,16 @@ function replaceSelectedText(translationText) {
     const startPos = originalSelectionStart;
     const endPos = originalSelectionEnd;
     
-    console.log('Using validated element:', element);
-    console.log('Element tag:', element.tagName);
-    console.log('Element type:', element.type);
-    console.log('Current value length:', element.value.length);
-    console.log('Selection range:', startPos, 'to', endPos);
-    
     try {
         // Get current text
         const currentText = element.value;
         const selectedText = currentText.substring(startPos, endPos);
         
-        console.log('Current full text:', currentText);
-        console.log('Selected text from positions:', selectedText);
-        console.log('Expected selected text:', currentSelectedText);
-        
         // Verify the text matches what we expect
         if (selectedText !== currentSelectedText) {
-            console.log('Warning: Selected text does not match expected text');
-            console.log('Expected:', currentSelectedText);
-            console.log('Found:', selectedText);
-            
             // Try to find the text in current content
             const textIndex = currentText.indexOf(currentSelectedText);
             if (textIndex !== -1) {
-                console.log('Found text at index:', textIndex);
                 // Update positions
                 const newStartPos = textIndex;
                 const newEndPos = textIndex + currentSelectedText.length;
@@ -1057,15 +1007,12 @@ function replaceSelectedText(translationText) {
                 const newCursorPos = newStartPos + translationText.length;
                 element.setSelectionRange(newCursorPos, newCursorPos);
                 
-                console.log('Successfully replaced text using search method');
-                
                 // Trigger events
                 element.dispatchEvent(new Event('input', { bubbles: true }));
                 element.dispatchEvent(new Event('change', { bubbles: true }));
                 
                 return;
             } else {
-                console.log('Could not find text in current content');
                 return;
             }
         }
@@ -1077,10 +1024,6 @@ function replaceSelectedText(translationText) {
         // Set cursor position after replaced text
         const newCursorPos = startPos + translationText.length;
         element.setSelectionRange(newCursorPos, newCursorPos);
-        
-        console.log('New text:', newText);
-        console.log('New cursor position:', newCursorPos);
-        console.log('Successfully replaced text using stored positions');
         
         // Trigger input and change events to notify the page
         element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1096,14 +1039,8 @@ function replaceSelectedText(translationText) {
 
 // Replace button click handler
 function handleReplaceClick() {
-    console.log('Replace button clicked');
-    console.log('Translated text:', translatedText);
-    console.log('Current selected text:', currentSelectedText);
-    
     if (translatedText) {
         replaceSelectedText(translatedText);
-    } else {
-        console.log('No translated text available');
     }
 }
 
@@ -1161,36 +1098,20 @@ function setupEventListeners() {
     // Settings and History buttons (placeholder)
     const settingsBtn = popup.querySelector('#settings-btn');
     const historyBtn = popup.querySelector('#history-btn');
-    const correctionToggle = popup.querySelector('#correction-toggle');
     
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => {
-            console.log('Settings clicked - opening options page');
             chrome.runtime.sendMessage({ action: 'openOptions' });
         });
     }
     
     if (historyBtn) {
         historyBtn.addEventListener('click', () => {
-            console.log('History clicked');
             showHistoryDialog();
         });
     }
     
-    if (correctionToggle) {
-        correctionToggle.addEventListener('click', () => {
-            console.log('Correction toggle clicked');
-            // TODO: Implement correction functionality
-            const isActive = correctionToggle.style.background === 'rgb(59, 130, 246)';
-            if (isActive) {
-                correctionToggle.style.background = '#e5e7eb';
-                correctionToggle.style.color = '#374151';
-            } else {
-                correctionToggle.style.background = '#3b82f6';
-                correctionToggle.style.color = 'white';
-            }
-        });
-    }
+
 }
 
 // Intelligent popup positioning
@@ -1321,7 +1242,6 @@ function showIcon() {
             currentSelectedText = selectedText.trim();
             
             // Element info is already stored in handleSelectionChange
-            console.log('Showing icon for input/textarea selection');
             
             if (!selectionIcon) {
                 createIcon();
@@ -1367,7 +1287,6 @@ function showIcon() {
     currentSelectedText = selectedText;
     
     // Element info is already cleared in handleSelectionChange for regular text
-    console.log('Showing icon for regular text selection');
     
     if (!selectionIcon) {
         createIcon();
@@ -1489,21 +1408,7 @@ function setupSelectionListeners() {
     });
 }
 
-// Speech synthesis for individual language segments
-window.speakLanguageSegment = function(text, language, rate = 1) {
-    if ('speechSynthesis' in window) {
-        // Stop any ongoing speech
-        speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = language;
-        utterance.rate = rate;
-        utterance.volume = 1;
-        utterance.pitch = 1;
-        
-        speechSynthesis.speak(utterance);
-    }
-};
+
 
 // Translation History Management
 async function saveTranslationToHistory(sourceText, translatedText, sourceLang, targetLang) {
@@ -1533,7 +1438,7 @@ async function saveTranslationToHistory(sourceText, translatedText, sourceLang, 
         
         // Save back to storage
         await chrome.storage.local.set({ translationHistory: history });
-        console.log('Translation saved to history');
+
     } catch (error) {
         console.error('Error saving translation to history:', error);
     }
@@ -1552,7 +1457,7 @@ async function getTranslationHistory() {
 async function clearTranslationHistory() {
     try {
         await chrome.storage.local.remove(['translationHistory']);
-        console.log('Translation history cleared');
+
     } catch (error) {
         console.error('Error clearing translation history:', error);
     }
@@ -1754,21 +1659,12 @@ async function showHistoryDialog() {
 
 // Listen for messages from popup and options page
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Content script received message:', message);
-    
     if (message.action === 'settingsUpdated') {
-        console.log('Settings updated in content script:', message.settings);
         // Store the new settings globally for immediate use
         currentSettings = message.settings;
         
-        console.log('Current settings updated to:', currentSettings);
-        
-        // Force refresh all extension components
-        console.log('Refreshing extension components with new settings...');
-        
         // If popup is open, refresh it with new settings
         if (popup && popup.style.opacity === '1') {
-            console.log('Popup is open, updating with new settings');
             // Hide current popup first
             hidePopup();
             // Wait a moment then show with new settings
@@ -1779,15 +1675,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         
         // Clear any cached language preferences so they get refreshed
         // (This ensures next popup will use new settings)
-        console.log('Extension components refreshed successfully');
         
         sendResponse({success: true, message: 'Settings updated and extension refreshed successfully'});
     } else if (message.action === 'showHistory') {
-        console.log('Show history requested from popup');
+
         showHistoryDialog();
         sendResponse({success: true});
     } else if (message.action === 'testExtension') {
-        console.log('Extension test requested from popup');
+
         // Test the extension by showing a test popup
         if (!selectionIcon) {
             createIcon();
@@ -1808,7 +1703,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Initialize extension with better compatibility
 async function initializeExtension() {
-    console.log('Initializing 888 AI Popup Translator on:', window.location.href);
+
     
     // Load settings first
     currentSettings = await getExtensionSettings();
@@ -1831,7 +1726,7 @@ async function initializeExtension() {
         });
         
         if (iconRemoved) {
-            console.log('Selection icon was removed by page, recreating...');
+
             createIcon();
         }
     });
@@ -1851,7 +1746,7 @@ if (document.readyState === 'loading') {
 // Also try to initialize after a delay for problematic sites like Google Keep
 setTimeout(() => {
     if (!selectionIcon || !document.contains(selectionIcon)) {
-        console.log('Late initialization for compatibility with:', window.location.href);
+
         initializeExtension();
     }
 }, 1000);
@@ -1860,7 +1755,7 @@ setTimeout(() => {
 window.addEventListener('load', () => {
     setTimeout(() => {
         if (!selectionIcon || !document.contains(selectionIcon)) {
-            console.log('Window load initialization for:', window.location.href);
+
             initializeExtension();
         }
     }, 500);
