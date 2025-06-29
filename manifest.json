@@ -1,11 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Text Selection Icon",
+  "name": "888 AI Popup Translator",
   "version": "1.0",
-  "description": "Shows a minimal icon when text is selected on any webpage with translation feature",
+  "description": "Smart AI-powered popup translator with multi-language detection and text-to-speech",
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icon.png"
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
   },
   "background": {
     "service_worker": "background.js"

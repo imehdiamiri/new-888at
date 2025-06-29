@@ -9,6 +9,7 @@ let lastIconPosition = { left: 0, top: 0 };
 let selectedFromElement = null;
 let originalSelectionStart = null;
 let originalSelectionEnd = null;
+let currentSettings = null; // Store current extension settings
 
 // Language options (Google Translate supported languages only)
 const languages = {
@@ -123,22 +124,18 @@ const languages = {
 };
 
 // Load saved language preferences
-function getLanguagePreferences() {
-    const saved = localStorage.getItem('translatorPrefs');
-    if (saved) {
-        try {
-            return JSON.parse(saved);
-        } catch (e) {
-            return { source: 'auto', target: 'en' };
-        }
-    }
-    return { source: 'auto', target: 'en' };
+async function getLanguagePreferences() {
+    // Always use extension settings instead of localStorage
+    const settings = currentSettings || await getExtensionSettings();
+    console.log('Getting language preferences from settings:', settings);
+    return { 
+        source: settings.defaultSourceLang || 'auto', 
+        target: settings.defaultTargetLang || 'fa' 
+    };
 }
 
-// Save language preferences
-function saveLanguagePreferences(source, target) {
-    localStorage.setItem('translatorPrefs', JSON.stringify({ source, target }));
-}
+// Language preferences are now saved through extension settings only
+// No need for localStorage - settings are managed through options page
 
 // Get extension settings from storage
 async function getExtensionSettings() {
@@ -174,28 +171,33 @@ function createIcon() {
     selectionIcon = document.createElement('div');
     selectionIcon.id = 'selection-icon';
     selectionIcon.innerHTML = `
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="10" fill="#fff" stroke="#bbb" stroke-width="1"/>
-        <circle cx="6" cy="10" r="1.2" fill="#888"/>
-        <circle cx="10" cy="10" r="1.2" fill="#888"/>
-        <circle cx="14" cy="10" r="1.2" fill="#888"/>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <defs>
+          <filter id="textShadow">
+            <feDropShadow dx="0.3" dy="0.3" stdDeviation="0.3" flood-color="rgba(0,0,0,0.2)"/>
+          </filter>
+        </defs>
+        <circle cx="12" cy="12" r="11" fill="#ffffff" stroke="#e5e7eb" stroke-width="1"/>
+        <text x="12" y="12" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle" dominant-baseline="central" filter="url(#textShadow)">888</text>
       </svg>
     `;
     selectionIcon.style.cssText = `
-        position: absolute;
-        z-index: 10000;
+        position: fixed !important;
+        z-index: 2147483647 !important;
         background: transparent;
         border-radius: 50%;
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 12px;
+        padding: 4px;
         cursor: pointer;
         pointer-events: auto;
         opacity: 0;
         transition: all 0.3s ease;
+        top: 0;
+        left: 0;
     `;
     
     // Add hover effect to icon
@@ -228,7 +230,29 @@ function createIcon() {
         showPopup();
     });
     
-    document.body.appendChild(selectionIcon);
+    // Force append to body with multiple attempts for compatibility
+    try {
+        if (document.body) {
+            document.body.appendChild(selectionIcon);
+        } else {
+            // If body not ready, wait and try again
+            setTimeout(() => {
+                if (document.body) {
+                    document.body.appendChild(selectionIcon);
+                } else {
+                    document.documentElement.appendChild(selectionIcon);
+                }
+            }, 100);
+        }
+    } catch (error) {
+        console.log('Error appending selection icon:', error);
+        // Fallback to documentElement
+        try {
+            document.documentElement.appendChild(selectionIcon);
+        } catch (fallbackError) {
+            console.log('Fallback append also failed:', fallbackError);
+        }
+    }
 }
 
 // Create popup element
@@ -240,8 +264,8 @@ function createPopup() {
     popup = document.createElement('div');
     popup.id = 'selection-popup';
     popup.style.cssText = `
-        position: fixed;
-        z-index: 10001;
+        position: fixed !important;
+        z-index: 2147483646 !important;
         background: white;
         border: 1px solid #e5e7eb;
         border-radius: 8px;
@@ -372,18 +396,33 @@ async function detectMultipleLanguages(text) {
             segments.push(currentSegment);
         }
         
-        // Merge consecutive segments of the same language
-        const mergedSegments = [];
+        // Advanced merge: combine ALL segments of the same language (not just consecutive)
+        const languageMap = new Map();
+        
         for (let segment of segments) {
-            const lastSegment = mergedSegments[mergedSegments.length - 1];
-            if (lastSegment && lastSegment.language === segment.language) {
-                lastSegment.text += ' ' + segment.text;
+            if (languageMap.has(segment.language)) {
+                // Merge with existing segment of same language
+                const existing = languageMap.get(segment.language);
+                existing.text += ' ' + segment.text;
             } else {
-                mergedSegments.push(segment);
+                // Create new entry for this language
+                languageMap.set(segment.language, {
+                    language: segment.language,
+                    languageName: segment.languageName,
+                    text: segment.text
+                });
             }
         }
         
-        return mergedSegments.length > 1 ? mergedSegments : null;
+        // Convert map back to array and filter out single-word segments that might be noise
+        const finalSegments = Array.from(languageMap.values()).filter(segment => {
+            // Keep segments that have meaningful content (more than just single character or very short words)
+            const cleanText = segment.text.trim();
+            return cleanText.length > 2 || /[\u0600-\u06FF\u0750-\u077F\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]/.test(cleanText);
+        });
+        
+        // Only return if we have multiple different languages
+        return finalSegments.length > 1 ? finalSegments : null;
     } catch (error) {
         console.error('Multi-language detection failed:', error);
         return null;
@@ -418,6 +457,13 @@ function speakLanguageSegment(text, lang, rate = 1) {
 // Text selection change handler
 function handleSelectionChange() {
     setTimeout(() => {
+        // Debug logging for Google Keep and similar sites
+        console.log('=== Selection Change Debug ===');
+        console.log('Current URL:', window.location.href);
+        console.log('Document ready state:', document.readyState);
+        console.log('Selection icon exists:', !!selectionIcon);
+        console.log('Selection icon in DOM:', selectionIcon ? document.contains(selectionIcon) : false);
+        
         const activeElement = document.activeElement;
         let hasSelection = false;
         let selectionInInput = false;
@@ -456,6 +502,11 @@ function handleSelectionChange() {
         }
         
         if (hasSelection) {
+            // Force recreate icon if it doesn't exist or not in DOM
+            if (!selectionIcon || !document.contains(selectionIcon)) {
+                console.log('Icon missing, recreating...');
+                createIcon();
+            }
             showIcon();
         } else {
             // Text deselected - hide icon and popup
@@ -525,8 +576,13 @@ async function showPopup() {
     detectedLanguage = '';
     
     // Get saved preferences and extension settings
-    const prefs = getLanguagePreferences();
-    const settings = await getExtensionSettings();
+    const prefs = await getLanguagePreferences();
+    const settings = currentSettings || await getExtensionSettings();
+    
+    // Store settings globally for future use
+    if (!currentSettings) {
+        currentSettings = settings;
+    }
     
     // Check if we're in an editable area using stored element with validation
     const isInEditableArea = isStoredElementValid();
@@ -584,7 +640,12 @@ async function showPopup() {
                         <circle cx="12" cy="12" r="3"></circle>
                     </svg>
                 </div>
-                <div id="close-btn" style="cursor: pointer; color: #6b7280; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; font-size: 18px; padding: 2px;">×</div>
+                <div id="close-btn" style="cursor: pointer; color: #6b7280; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; padding: 2px;" title="Close">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </div>
             </div>
         </div>
         
@@ -609,12 +670,12 @@ async function showPopup() {
                                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                             </svg>
                         </button>
-                        <button id="speak-slow" style="background: #f3f4f6; border: 1px solid #d1d5db; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; position: relative;" title="Slow speed (0.25x)">
+                        <button id="speak-slow" style="background: #f3f4f6; border: 1px solid #d1d5db; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; position: relative;" title="Slow speed (${settings.slowSpeechRate || 0.25}x)">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
                                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                             </svg>
-                            <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">0.25x</span>
+                            <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">${settings.slowSpeechRate || 0.25}x</span>
                         </button>
                     ` : ''}
                 </div>
@@ -622,7 +683,7 @@ async function showPopup() {
             
             <!-- Translation Result -->
             <div id="translation-section" style="margin-bottom: 6px; display: none;">
-                <div id="translation-result" style="background: #f9fafb; padding: 12px; border-radius: 6px; color: #374151; font-size: 14px; max-height: 120px; overflow-y: auto; border: 1px solid #e5e7eb; line-height: 1.5; text-align: center;">
+                <div id="translation-result" style="background: #f9fafb; padding: 12px; border-radius: 6px; color: #374151; font-size: ${settings.fontSize}px; max-height: 120px; overflow-y: auto; border: 1px solid #e5e7eb; line-height: 1.5; text-align: center;">
                     <!-- Translation will appear here -->
                 </div>
                 
@@ -767,9 +828,33 @@ async function showPopup() {
 
 // Detect and show multiple languages
 async function detectAndShowMultipleLanguages() {
+    // Check if multi-language detection is enabled
+    const settings = currentSettings || await getExtensionSettings();
+    if (!settings.multiLangDetection) {
+        console.log('Multi-language detection is disabled');
+        return;
+    }
+    
+    console.log('Detecting multiple languages for text:', currentSelectedText);
     const segments = await detectMultipleLanguages(currentSelectedText);
+    console.log('Detected segments:', segments);
     
     if (segments && segments.length > 1) {
+        // Remove any potential duplicates by language code (extra safety)
+        const uniqueSegments = [];
+        const seenLanguages = new Set();
+        
+        for (const segment of segments) {
+            if (!seenLanguages.has(segment.language)) {
+                seenLanguages.add(segment.language);
+                uniqueSegments.push(segment);
+            } else {
+                console.log('Skipping duplicate language segment:', segment.language);
+            }
+        }
+        
+        console.log('Final unique segments:', uniqueSegments);
+        
         // Show multi-language section with speech buttons
         const multiLangSection = popup.querySelector('#multi-lang-section');
         const singleLangSection = popup.querySelector('#single-lang-section');
@@ -779,11 +864,8 @@ async function detectAndShowMultipleLanguages() {
             multiLangSection.style.display = 'block';
             singleLangSection.style.display = 'none';
             
-            // Get settings for speech buttons
-            const settings = await getExtensionSettings();
-            
-            // Generate HTML for each language with conditional speech buttons
-            languageSegments.innerHTML = segments.map((segment, index) => `
+            // Generate HTML for each unique language with conditional speech buttons
+            languageSegments.innerHTML = uniqueSegments.map((segment, index) => `
                 <div class="lang-item">
                     <span class="lang-name">${segment.languageName}</span>
                     <div class="lang-buttons">
@@ -794,18 +876,20 @@ async function detectAndShowMultipleLanguages() {
                                     <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                                 </svg>
                             </button>
-                            <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', 0.25)" title="Slow speed" style="position: relative;">
+                            <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', ${settings.slowSpeechRate || 0.25})" title="Slow speed" style="position: relative;">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
                                     <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
                                     <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                                 </svg>
-                                <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">0.25x</span>
+                                <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">${settings.slowSpeechRate || 0.25}x</span>
                             </button>
                         ` : ''}
                     </div>
                 </div>
             `).join('');
         }
+    } else {
+        console.log('Single language detected or detection failed, using normal mode');
     }
 }
 
@@ -822,7 +906,7 @@ async function performTranslation() {
     if (translationSection) translationSection.style.display = 'none';
     
     try {
-        const prefs = getLanguagePreferences();
+        const prefs = await getLanguagePreferences();
         const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${prefs.source}&tl=${prefs.target}&dt=t&q=${encodeURIComponent(currentSelectedText)}`);
         
         if (response.ok) {
@@ -1069,7 +1153,8 @@ function setupEventListeners() {
     
     if (speakSlow) {
         speakSlow.addEventListener('click', () => {
-            speakText(currentSelectedText, detectedLanguage || 'auto', 0.25);
+            const rate = currentSettings ? currentSettings.slowSpeechRate : 0.25;
+            speakText(currentSelectedText, detectedLanguage || 'auto', rate);
         });
     }
     
@@ -1364,10 +1449,15 @@ if (document.readyState === 'loading') {
 }
 
 function setupSelectionListeners() {
-    // Add selection change listeners
-    document.addEventListener('selectionchange', handleSelectionChange);
-    document.addEventListener('mouseup', handleSelectionChange);
-    document.addEventListener('keyup', handleSelectionChange);
+    // Force create icon if not exists
+    if (!selectionIcon) {
+        createIcon();
+    }
+    
+    // Add selection change listeners with capture phase for better compatibility
+    document.addEventListener('selectionchange', handleSelectionChange, true);
+    document.addEventListener('mouseup', handleSelectionChange, true);
+    document.addEventListener('keyup', handleSelectionChange, true);
     
     // Add input event listeners for input/textarea elements
     document.addEventListener('input', handleSelectionChange);
@@ -1662,16 +1752,116 @@ async function showHistoryDialog() {
     document.head.appendChild(style);
 }
 
-// Listen for settings updates from options page
+// Listen for messages from popup and options page
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('Content script received message:', message);
+    
     if (message.action === 'settingsUpdated') {
-        console.log('Settings updated:', message.settings);
+        console.log('Settings updated in content script:', message.settings);
+        // Store the new settings globally for immediate use
+        currentSettings = message.settings;
+        
+        console.log('Current settings updated to:', currentSettings);
+        
+        // Force refresh all extension components
+        console.log('Refreshing extension components with new settings...');
+        
         // If popup is open, refresh it with new settings
         if (popup && popup.style.opacity === '1') {
+            console.log('Popup is open, updating with new settings');
+            // Hide current popup first
+            hidePopup();
+            // Wait a moment then show with new settings
+            setTimeout(() => {
             showPopup();
+            }, 100);
         }
+        
+        // Clear any cached language preferences so they get refreshed
+        // (This ensures next popup will use new settings)
+        console.log('Extension components refreshed successfully');
+        
+        sendResponse({success: true, message: 'Settings updated and extension refreshed successfully'});
+    } else if (message.action === 'showHistory') {
+        console.log('Show history requested from popup');
+        showHistoryDialog();
+        sendResponse({success: true});
+    } else if (message.action === 'testExtension') {
+        console.log('Extension test requested from popup');
+        // Test the extension by showing a test popup
+        if (!selectionIcon) {
+            createIcon();
+        }
+        if (!popup) {
+            createPopup();
+        }
+        
+        // Simulate a text selection for testing
+        currentSelectedText = 'Test text for translation';
+        showPopup();
+        
+        sendResponse({success: true, message: 'Extension is working correctly!'});
     }
+    
+    return true; // Keep message channel open for async response
 });
 
-// Initialize
-createIcon(); 
+// Initialize extension with better compatibility
+async function initializeExtension() {
+    console.log('Initializing 888 AI Popup Translator on:', window.location.href);
+    
+    // Load settings first
+    currentSettings = await getExtensionSettings();
+    
+    createIcon();
+    createPopup();
+    setupSelectionListeners();
+    
+    // Monitor DOM changes for sites that dynamically modify content
+    const observer = new MutationObserver((mutations) => {
+        let iconRemoved = false;
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                mutation.removedNodes.forEach((node) => {
+                    if (node === selectionIcon) {
+                        iconRemoved = true;
+                    }
+                });
+            }
+        });
+        
+        if (iconRemoved) {
+            console.log('Selection icon was removed by page, recreating...');
+            createIcon();
+        }
+    });
+    
+    observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => initializeExtension());
+} else {
+    initializeExtension();
+}
+
+// Also try to initialize after a delay for problematic sites like Google Keep
+setTimeout(() => {
+    if (!selectionIcon || !document.contains(selectionIcon)) {
+        console.log('Late initialization for compatibility with:', window.location.href);
+        initializeExtension();
+    }
+}, 1000);
+
+// Force initialization on window load for maximum compatibility
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        if (!selectionIcon || !document.contains(selectionIcon)) {
+            console.log('Window load initialization for:', window.location.href);
+            initializeExtension();
+        }
+    }, 500);
+}); 
