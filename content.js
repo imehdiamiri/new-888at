@@ -3,6 +3,7 @@ let popup = null;
 let selectionIcon = null;
 let currentSelectedText = '';
 let translatedText = '';
+let completeTranslation = ''; // Store complete translation for multi-language mode
 let isTranslating = false;
 let detectedLanguage = '';
 let lastIconPosition = { left: 0, top: 0 };
@@ -562,6 +563,7 @@ async function showPopup() {
     
     // Reset translation state
     translatedText = '';
+    completeTranslation = '';
     isTranslating = false;
     detectedLanguage = '';
     
@@ -824,9 +826,19 @@ async function detectAndShowMultipleLanguages() {
             }
         }
         
-
+        // Get complete translation of the entire mixed text
+        const prefs = await getLanguagePreferences();
+        try {
+            const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${prefs.target}&dt=t&q=${encodeURIComponent(currentSelectedText)}`);
+            if (response.ok) {
+                const result = await response.json();
+                completeTranslation = result[0][0][0];
+            }
+        } catch (error) {
+            completeTranslation = 'Translation failed';
+        }
         
-        // Show multi-language section with speech buttons
+        // Show multi-language section with speech buttons AND complete translation
         const multiLangSection = popup.querySelector('#multi-lang-section');
         const singleLangSection = popup.querySelector('#single-lang-section');
         const languageSegments = popup.querySelector('#language-segments');
@@ -835,29 +847,81 @@ async function detectAndShowMultipleLanguages() {
             multiLangSection.style.display = 'block';
             singleLangSection.style.display = 'none';
             
-            // Generate HTML for each unique language with conditional speech buttons
-            languageSegments.innerHTML = uniqueSegments.map((segment, index) => `
-                <div class="lang-item">
-                    <span class="lang-name">${segment.languageName}</span>
-                    <div class="lang-buttons">
-                        ${settings.textToSpeech ? `
-                            <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', 1)" title="Normal speed">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            const isTargetRTL = isRTLLanguage(prefs.target);
+            const rtlClass = isTargetRTL ? 'rtl-text' : '';
+            const targetLangName = getLanguageName(prefs.target);
+            
+            // Generate HTML with detected languages AND complete translation
+            languageSegments.innerHTML = `
+                <!-- Detected Languages -->
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 10px; color: #6b7280; margin-bottom: 6px; font-weight: 500;">Detected Languages:</div>
+                    ${uniqueSegments.map((segment, index) => `
+                        <div class="lang-item">
+                            <span class="lang-name">${segment.languageName}</span>
+                            <div class="lang-buttons">
+                                ${settings.textToSpeech ? `
+                                    <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', 1)" title="Normal speed">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                        </svg>
+                                    </button>
+                                    <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', ${settings.slowSpeechRate || 0.25})" title="Slow speed" style="position: relative;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                        </svg>
+                                        <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">${settings.slowSpeechRate || 0.25}x</span>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <!-- Complete Translation -->
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 12px;">
+                    <div style="font-size: 10px; color: #6b7280; margin-bottom: 6px; font-weight: 500;">Complete Translation (${targetLangName}):</div>
+                    <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; border: 1px solid #e5e7eb; position: relative;">
+                        <div class="${rtlClass}" style="font-size: 13px; line-height: 1.4; color: #1f2937;">${completeTranslation}</div>
+                        <div style="position: absolute; top: 4px; right: 4px; display: flex; gap: 2px;">
+                            <button id="copy-complete-btn" style="background: #f3f4f6; border: 1px solid #d1d5db; width: 20px; height: 20px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" title="Copy complete translation">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                             </button>
-                            <button class="lang-speak-btn" onclick="speakLanguageSegment('${segment.text.replace(/'/g, "\\'")}', '${segment.language}', ${settings.slowSpeechRate || 0.25})" title="Slow speed" style="position: relative;">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                                </svg>
-                                <span style="position: absolute; top: -2px; right: -2px; background: #6b7280; color: white; font-size: 7px; padding: 1px 2px; border-radius: 2px; line-height: 1;">${settings.slowSpeechRate || 0.25}x</span>
-                            </button>
-                        ` : ''}
+                            ${settings.textToSpeech ? `
+                                <button class="lang-speak-btn" onclick="speakLanguageSegment('${completeTranslation.replace(/'/g, "\\'")}', '${prefs.target}', 1)" title="Speak complete translation" style="width: 20px; height: 20px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                    </svg>
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
                 </div>
-            `).join('');
+            `;
+            
+            // Set up copy button for complete translation
+            const copyCompleteBtn = languageSegments.querySelector('#copy-complete-btn');
+            if (copyCompleteBtn) {
+                copyCompleteBtn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(completeTranslation).then(() => {
+                        const originalIcon = copyCompleteBtn.innerHTML;
+                        copyCompleteBtn.innerHTML = `
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
+                                <polyline points="20,6 9,17 4,12"></polyline>
+                            </svg>
+                        `;
+                        setTimeout(() => {
+                            copyCompleteBtn.innerHTML = originalIcon;
+                        }, 1500);
+                    });
+                });
+            }
         }
     } else {
 
@@ -910,8 +974,9 @@ async function performTranslation() {
             if (loadingState) loadingState.style.display = 'none';
             if (translationSection) translationSection.style.display = 'block';
             
-            // Save translation to history
-            await saveTranslationToHistory(currentSelectedText, translatedText, detectedLanguage, prefs.target);
+            // Save translation to history (use complete translation if available)
+            const finalTranslation = completeTranslation || translatedText;
+            await saveTranslationToHistory(currentSelectedText, finalTranslation, detectedLanguage, prefs.target);
             
             // Re-setup event listeners for buttons after content update
             setupTranslationButtons();
@@ -955,8 +1020,10 @@ function setupTranslationButtons() {
 
 // Copy button click handler
 function handleCopyClick() {
-    if (translatedText) {
-        navigator.clipboard.writeText(translatedText).then(() => {
+    // Use complete translation if available (multi-language mode), otherwise use regular translation
+    const textToCopy = completeTranslation || translatedText;
+    if (textToCopy) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
             const copyBtn = popup.querySelector('#copy-btn');
             if (copyBtn) {
                 // Visual feedback
@@ -1039,8 +1106,10 @@ function replaceSelectedText(translationText) {
 
 // Replace button click handler
 function handleReplaceClick() {
-    if (translatedText) {
-        replaceSelectedText(translatedText);
+    // Use complete translation if available (multi-language mode), otherwise use regular translation
+    const textToReplace = completeTranslation || translatedText;
+    if (textToReplace) {
+        replaceSelectedText(textToReplace);
     }
 }
 
