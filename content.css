@@ -8,4 +8,12 @@
 #selection-icon:hover {
     transform: scale(1.1);
     transition: transform 0.2s ease;
+}
+
+/* RTL text support for Persian, Arabic, Hebrew, etc. */
+.rtl-text {
+    direction: rtl !important;
+    text-align: right !important;
+    unicode-bidi: embed !important;
+    font-family: 'Tahoma', 'Arial Unicode MS', sans-serif !important;
 } 

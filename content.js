@@ -134,29 +134,38 @@ async function getLanguagePreferences() {
 }
 
 // Save language preferences to extension settings
-async function saveLanguagePreferences(sourceLang, targetLang) {
+async function saveLanguagePreferences(source, target) {
     try {
-        const settings = await getExtensionSettings();
-        const updatedSettings = {
-            ...settings,
-            defaultSourceLang: sourceLang,
-            defaultTargetLang: targetLang
-        };
-        
-        // Save to chrome storage
-        await chrome.storage.sync.set(updatedSettings);
-        
-        // Update global current settings cache
-        currentSettings = updatedSettings;
-        
-        return true;
+        if (chrome.storage && chrome.storage.sync) {
+            // Get current settings first to avoid overwriting other settings
+            const currentStoredSettings = await chrome.storage.sync.get({
+                defaultSourceLang: 'auto',
+                defaultTargetLang: 'fa',
+                fontSize: '14',
+                multiLangDetection: true,
+                textToSpeech: true,
+                slowSpeechRate: 0.25
+            });
+            
+            // Only update the language preferences
+            await chrome.storage.sync.set({
+                ...currentStoredSettings,
+                defaultSourceLang: source,
+                defaultTargetLang: target
+            });
+            
+            console.log('Language preferences saved:', { source, target });
+            
+            // Update current settings cache
+            if (currentSettings) {
+                currentSettings.defaultSourceLang = source;
+                currentSettings.defaultTargetLang = target;
+            }
+        }
     } catch (error) {
         console.error('Error saving language preferences:', error);
-        return false;
     }
 }
-
-
 
 // Get extension settings from storage
 async function getExtensionSettings() {
@@ -856,8 +865,7 @@ async function detectAndShowMultipleLanguages() {
         
         if (multiLangSection && singleLangSection && languageSegments) {
             multiLangSection.style.display = 'block';
-            // Keep single language section visible to show full translation
-            singleLangSection.style.display = 'block';
+            singleLangSection.style.display = 'none';
             
             // Generate HTML for each unique language with conditional speech buttons
             languageSegments.innerHTML = uniqueSegments.map((segment, index) => `
@@ -902,43 +910,313 @@ async function performTranslation() {
     
     try {
         const prefs = await getLanguagePreferences();
-        const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${prefs.source}&tl=${prefs.target}&dt=t&q=${encodeURIComponent(currentSelectedText)}`);
+        const settings = currentSettings || await getExtensionSettings();
         
-        if (response.ok) {
-            const result = await response.json();
-            translatedText = result[0][0][0];
-            detectedLanguage = result[2] || prefs.source;
+        // Check if multi-language detection is enabled
+        if (settings.multiLangDetection) {
+            // For multi-language mode, we need to handle mixed text translation differently
+            // Try multiple approaches to get the best translation
             
-            // Update detected language display
-            const detectedLangDiv = popup.querySelector('#detected-lang');
-            if (detectedLangDiv) {
-                const languageName = getLanguageName(detectedLanguage);
-                detectedLangDiv.textContent = `Detected: ${languageName}`;
+            let translationAttempts = [];
+            
+            // Attempt 1: Direct translation with auto-detect
+            try {
+                const response1 = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${prefs.target}&dt=t&q=${encodeURIComponent(currentSelectedText)}`);
+                if (response1.ok) {
+                    const result1 = await response1.json();
+                    let translation1 = '';
+                    if (result1 && result1[0]) {
+                        for (let i = 0; i < result1[0].length; i++) {
+                            if (result1[0][i] && result1[0][i][0]) {
+                                translation1 += result1[0][i][0];
+                            }
+                        }
+                    }
+                    if (translation1 && translation1.trim()) {
+                        translationAttempts.push({ method: 'auto-detect', translation: translation1, result: result1 });
+                    }
+                }
+            } catch (e) {
+                console.log('Auto-detect translation failed:', e);
             }
             
-            // Show translation with RTL support while preserving buttons
-            if (translationResult) {
-                const isTargetRTL = isRTLLanguage(prefs.target);
-                const rtlClass = isTargetRTL ? 'rtl-text' : '';
-                
-                // Find existing buttons container
-                const existingButtons = translationResult.querySelector('div[style*="position: absolute"]');
-                const buttonsHTML = existingButtons ? existingButtons.outerHTML : '';
-                
-                // Update content while preserving buttons
-                translationResult.innerHTML = `
-                    <div class="${rtlClass}" style="text-align: center;">${translatedText}</div>
-                `;
+            // Attempt 2: Force English to target language (for mixed text)
+            try {
+                const response2 = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${prefs.target}&dt=t&q=${encodeURIComponent(currentSelectedText)}`);
+                if (response2.ok) {
+                    const result2 = await response2.json();
+                    let translation2 = '';
+                    if (result2 && result2[0]) {
+                        for (let i = 0; i < result2[0].length; i++) {
+                            if (result2[0][i] && result2[0][i][0]) {
+                                translation2 += result2[0][i][0];
+                            }
+                        }
+                    }
+                    if (translation2 && translation2.trim()) {
+                        translationAttempts.push({ method: 'en-to-target', translation: translation2, result: result2 });
+                    }
+                }
+            } catch (e) {
+                console.log('English-to-target translation failed:', e);
             }
             
-            if (loadingState) loadingState.style.display = 'none';
-            if (translationSection) translationSection.style.display = 'block';
+            // Attempt 2b: Try with normalized text (remove Persian words and translate English parts)
+            try {
+                // Extract English words and translate them, then combine with Persian context
+                const englishWords = currentSelectedText.replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+/g, '').trim();
+                if (englishWords && englishWords !== currentSelectedText) {
+                    const contextualText = `${englishWords} together go to cinema`;
+                    const response2b = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${prefs.target}&dt=t&q=${encodeURIComponent(contextualText)}`);
+                    if (response2b.ok) {
+                        const result2b = await response2b.json();
+                        let translation2b = '';
+                        if (result2b && result2b[0]) {
+                            for (let i = 0; i < result2b[0].length; i++) {
+                                if (result2b[0][i] && result2b[0][i][0]) {
+                                    translation2b += result2b[0][i][0];
+                                }
+                            }
+                        }
+                        if (translation2b && translation2b.trim()) {
+                            translationAttempts.push({ method: 'contextual-en', translation: translation2b, result: result2b });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('Contextual English translation failed:', e);
+            }
             
-            // Save translation to history
-            await saveTranslationToHistory(currentSelectedText, translatedText, detectedLanguage, prefs.target);
+            // Attempt 3: Try treating the whole text as the source language if specified
+            if (prefs.source !== 'auto') {
+                try {
+                    const response3 = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${prefs.source}&tl=${prefs.target}&dt=t&q=${encodeURIComponent(currentSelectedText)}`);
+                    if (response3.ok) {
+                        const result3 = await response3.json();
+                        let translation3 = '';
+                        if (result3 && result3[0]) {
+                            for (let i = 0; i < result3[0].length; i++) {
+                                if (result3[0][i] && result3[0][i][0]) {
+                                    translation3 += result3[0][i][0];
+                                }
+                            }
+                        }
+                        if (translation3 && translation3.trim()) {
+                            translationAttempts.push({ method: 'source-to-target', translation: translation3, result: result3 });
+                        }
+                    }
+                } catch (e) {
+                    console.log('Source-to-target translation failed:', e);
+                }
+            }
             
-            // Re-setup event listeners for buttons after content update
-            setupTranslationButtons();
+            // Choose the best translation using multiple criteria
+            let bestTranslation = null;
+            if (translationAttempts.length > 0) {
+                // Score each translation based on multiple factors
+                translationAttempts.forEach(attempt => {
+                    let score = 10; // Base score for any valid translation
+                    
+                    // Factor 1: Length difference (prefer reasonable length translations)
+                    const lengthDiff = Math.abs(attempt.translation.length - currentSelectedText.length);
+                    if (lengthDiff < 50) score += 20; // Reasonable length difference
+                    
+                    // Factor 2: Character set difference (prefer translations that use target language characters)
+                    const hasTargetChars = prefs.target === 'fa' ? 
+                        /[\u0600-\u06FF]/.test(attempt.translation) : 
+                        /[a-zA-Z]/.test(attempt.translation);
+                    if (hasTargetChars) score += 30;
+                    
+                    // Factor 3: Method preference
+                    if (attempt.method === 'contextual-en') score += 25;
+                    if (attempt.method === 'auto-detect') score += 20;
+                    if (attempt.method === 'en-to-target') score += 15;
+                    if (attempt.method === 'source-to-target') score += 10;
+                    
+                    // Factor 4: Avoid exact matches but don't penalize too heavily
+                    const exactMatch = attempt.translation.toLowerCase() === currentSelectedText.toLowerCase();
+                    if (exactMatch) score -= 20;
+                    
+                    // Factor 5: Prefer translations with some content
+                    if (attempt.translation.length > 5) score += 10;
+                    
+                    attempt.score = Math.max(score, 1); // Ensure minimum score of 1
+                });
+                
+                // Sort by score (highest first)
+                translationAttempts.sort((a, b) => b.score - a.score);
+                bestTranslation = translationAttempts[0];
+            }
+            
+            if (bestTranslation) {
+                translatedText = bestTranslation.translation;
+                detectedLanguage = bestTranslation.result[2] || 'auto';
+                
+                console.log('Multi-language translation attempts:', {
+                    originalText: currentSelectedText,
+                    attempts: translationAttempts.map(a => ({ 
+                        method: a.method, 
+                        translation: a.translation, 
+                        score: a.score 
+                    })),
+                    chosenMethod: bestTranslation.method,
+                    chosenScore: bestTranslation.score,
+                    finalTranslation: translatedText,
+                    detectedLanguage: detectedLanguage,
+                    targetLanguage: prefs.target
+                });
+                
+                // Update detected language display
+                const detectedLangDiv = popup.querySelector('#detected-lang');
+                if (detectedLangDiv) {
+                    const languageName = getLanguageName(detectedLanguage);
+                    detectedLangDiv.textContent = `Detected: ${languageName} (${bestTranslation.method})`;
+                }
+                
+                // Show translation with RTL support
+                if (translationResult) {
+                    const isTargetRTL = isRTLLanguage(prefs.target);
+                    const rtlClass = isTargetRTL ? 'rtl-text' : '';
+                    const textAlign = isTargetRTL ? 'right' : 'center';
+                    const direction = isTargetRTL ? 'rtl' : 'ltr';
+                    
+                    // Update content - show entire mixed text translated to target language
+                    translationResult.innerHTML = `
+                        <div class="${rtlClass}" style="text-align: ${textAlign}; direction: ${direction}; unicode-bidi: embed;">${translatedText}</div>
+                    `;
+                }
+                
+                if (loadingState) loadingState.style.display = 'none';
+                if (translationSection) translationSection.style.display = 'block';
+                
+                // Save translation to history
+                await saveTranslationToHistory(currentSelectedText, translatedText, detectedLanguage, prefs.target);
+                
+                // Re-setup event listeners for buttons after content update
+                setupTranslationButtons();
+            } else {
+                // No translation worked, try a simple fallback
+                console.log('All translation attempts failed, trying simple fallback...');
+                
+                try {
+                    // Simple fallback: just try auto-detect without strict filtering
+                    const fallbackResponse = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${prefs.target}&dt=t&q=${encodeURIComponent(currentSelectedText)}`);
+                    if (fallbackResponse.ok) {
+                        const fallbackResult = await fallbackResponse.json();
+                        let fallbackTranslation = '';
+                        if (fallbackResult && fallbackResult[0] && fallbackResult[0][0] && fallbackResult[0][0][0]) {
+                            fallbackTranslation = fallbackResult[0][0][0];
+                        }
+                        
+                        if (fallbackTranslation) {
+                            translatedText = fallbackTranslation;
+                            detectedLanguage = fallbackResult[2] || 'auto';
+                            
+                            console.log('Fallback translation succeeded:', {
+                                originalText: currentSelectedText,
+                                fallbackTranslation: translatedText,
+                                detectedLanguage: detectedLanguage
+                            });
+                            
+                            // Update detected language display
+                            const detectedLangDiv = popup.querySelector('#detected-lang');
+                            if (detectedLangDiv) {
+                                const languageName = getLanguageName(detectedLanguage);
+                                detectedLangDiv.textContent = `Detected: ${languageName} (fallback)`;
+                            }
+                            
+                            // Show translation with RTL support
+                            if (translationResult) {
+                                const isTargetRTL = isRTLLanguage(prefs.target);
+                                const rtlClass = isTargetRTL ? 'rtl-text' : '';
+                                const textAlign = isTargetRTL ? 'right' : 'center';
+                                const direction = isTargetRTL ? 'rtl' : 'ltr';
+                                
+                                translationResult.innerHTML = `
+                                    <div class="${rtlClass}" style="text-align: ${textAlign}; direction: ${direction}; unicode-bidi: embed;">${translatedText}</div>
+                                `;
+                            }
+                            
+                            if (loadingState) loadingState.style.display = 'none';
+                            if (translationSection) translationSection.style.display = 'block';
+                            
+                            await saveTranslationToHistory(currentSelectedText, translatedText, detectedLanguage, prefs.target);
+                            setupTranslationButtons();
+                        } else {
+                            throw new Error('Fallback translation also failed');
+                        }
+                    } else {
+                        throw new Error('Fallback request failed');
+                    }
+                } catch (fallbackError) {
+                    console.error('Fallback translation failed:', fallbackError);
+                    
+                    // Final fallback: show error message
+                    translatedText = 'Translation failed - please try again or check your internet connection';
+                    if (translationResult) {
+                        translationResult.innerHTML = `
+                            <div style="text-align: center; color: #ef4444;">${translatedText}</div>
+                        `;
+                    }
+                    if (loadingState) loadingState.style.display = 'none';
+                    if (translationSection) translationSection.style.display = 'block';
+                    setupTranslationButtons();
+                }
+            }
+        } else {
+            // Regular single-language translation mode
+            const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${prefs.source}&tl=${prefs.target}&dt=t&q=${encodeURIComponent(currentSelectedText)}`);
+            
+            if (response.ok) {
+                const result = await response.json();
+                
+                // Extract full translation - handle multiple parts
+                let fullTranslation = '';
+                if (result && result[0]) {
+                    for (let i = 0; i < result[0].length; i++) {
+                        if (result[0][i] && result[0][i][0]) {
+                            fullTranslation += result[0][i][0];
+                        }
+                    }
+                }
+                
+                // Fallback to first part if concatenation fails
+                if (!fullTranslation && result[0] && result[0][0] && result[0][0][0]) {
+                    fullTranslation = result[0][0][0];
+                }
+                
+                translatedText = fullTranslation || 'Translation failed';
+                detectedLanguage = result[2] || prefs.source;
+                
+                // Update detected language display
+                const detectedLangDiv = popup.querySelector('#detected-lang');
+                if (detectedLangDiv) {
+                    const languageName = getLanguageName(detectedLanguage);
+                    detectedLangDiv.textContent = `Detected: ${languageName}`;
+                }
+                
+                // Show translation with RTL support
+                if (translationResult) {
+                    const isTargetRTL = isRTLLanguage(prefs.target);
+                    const rtlClass = isTargetRTL ? 'rtl-text' : '';
+                    const textAlign = isTargetRTL ? 'right' : 'center';
+                    const direction = isTargetRTL ? 'rtl' : 'ltr';
+                    
+                    // Update content while preserving buttons
+                    translationResult.innerHTML = `
+                        <div class="${rtlClass}" style="text-align: ${textAlign}; direction: ${direction}; unicode-bidi: embed;">${translatedText}</div>
+                    `;
+                }
+                
+                if (loadingState) loadingState.style.display = 'none';
+                if (translationSection) translationSection.style.display = 'block';
+                
+                // Save translation to history
+                await saveTranslationToHistory(currentSelectedText, translatedText, detectedLanguage, prefs.target);
+                
+                // Re-setup event listeners for buttons after content update
+                setupTranslationButtons();
+            }
         }
     } catch (error) {
         console.error('Translation error:', error);
@@ -1090,23 +1368,23 @@ function setupEventListeners() {
     
     if (sourceLang) {
         sourceLang.addEventListener('change', async () => {
-            // Save language preferences
-            await saveLanguagePreferences(sourceLang.value, targetLang.value);
-            
-            // Re-run translation and multi-language detection with new settings
-            await performTranslation();
-            await detectAndShowMultipleLanguages();
+            if (targetLang) {
+                await saveLanguagePreferences(sourceLang.value, targetLang.value);
+                // Refresh current settings
+                currentSettings = await getExtensionSettings();
+                performTranslation();
+            }
         });
     }
     
     if (targetLang) {
         targetLang.addEventListener('change', async () => {
-            // Save language preferences
-            await saveLanguagePreferences(sourceLang.value, targetLang.value);
-            
-            // Re-run translation and multi-language detection with new settings
-            await performTranslation();
-            await detectAndShowMultipleLanguages();
+            if (sourceLang) {
+                await saveLanguagePreferences(sourceLang.value, targetLang.value);
+                // Refresh current settings
+                currentSettings = await getExtensionSettings();
+                performTranslation();
+            }
         });
     }
     
