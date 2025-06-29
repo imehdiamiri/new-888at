@@ -133,6 +133,29 @@ async function getLanguagePreferences() {
     };
 }
 
+// Save language preferences to extension settings
+async function saveLanguagePreferences(sourceLang, targetLang) {
+    try {
+        const settings = await getExtensionSettings();
+        const updatedSettings = {
+            ...settings,
+            defaultSourceLang: sourceLang,
+            defaultTargetLang: targetLang
+        };
+        
+        // Save to chrome storage
+        await chrome.storage.sync.set(updatedSettings);
+        
+        // Update global current settings cache
+        currentSettings = updatedSettings;
+        
+        return true;
+    } catch (error) {
+        console.error('Error saving language preferences:', error);
+        return false;
+    }
+}
+
 
 
 // Get extension settings from storage
@@ -1066,16 +1089,24 @@ function setupEventListeners() {
     const targetLang = popup.querySelector('#target-lang');
     
     if (sourceLang) {
-        sourceLang.addEventListener('change', () => {
-            saveLanguagePreferences(sourceLang.value, targetLang.value);
-            performTranslation();
+        sourceLang.addEventListener('change', async () => {
+            // Save language preferences
+            await saveLanguagePreferences(sourceLang.value, targetLang.value);
+            
+            // Re-run translation and multi-language detection with new settings
+            await performTranslation();
+            await detectAndShowMultipleLanguages();
         });
     }
     
     if (targetLang) {
-        targetLang.addEventListener('change', () => {
-            saveLanguagePreferences(sourceLang.value, targetLang.value);
-            performTranslation();
+        targetLang.addEventListener('change', async () => {
+            // Save language preferences
+            await saveLanguagePreferences(sourceLang.value, targetLang.value);
+            
+            // Re-run translation and multi-language detection with new settings
+            await performTranslation();
+            await detectAndShowMultipleLanguages();
         });
     }
     
