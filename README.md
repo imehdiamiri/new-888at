@@ -1,130 +1,144 @@
-# Smart Translation Chrome Extension
+# 888 AI Popup Translator 🌍
 
-A powerful Chrome extension that provides instant translation with advanced features like multi-language detection, text-to-speech, translation history, and smart text replacement.
+یک اکستنشن هوشمند Chrome برای ترجمه آنلاین متن‌ها با تشخیص خودکار زبان و قابلیت تبدیل متن به صدا.
 
-## 🚀 Features
+## ✨ ویژگی‌های اصلی
 
-### Core Translation
-- **Instant Translation**: Select any text on any webpage for immediate translation
-- **Smart Language Detection**: Automatically detects source language
-- **40+ Languages Support**: Translate between major world languages
-- **RTL Language Support**: Proper support for Arabic, Persian, Hebrew, etc.
+### 🚀 ترجمه فوری
+- انتخاب هر متنی روی هر سایت
+- ظاهر شدن آیکون "888" در زیر متن انتخابی
+- ترجمه فوری با کلیک روی آیکون
 
-### Advanced Features
-- **Multi-Language Detection**: Detects and handles mixed-language text
-- **Text-to-Speech**: Listen to original and translated text with normal/slow speeds
-- **Smart Text Replacement**: Replace selected text with translation in editable areas
-- **Translation History**: Keep track of your last 50 translations with timestamps and source pages
-- **Customizable Settings**: Configure default languages, font sizes, and behavior
+### 🧠 هوش مصنوعی
+- تشخیص خودکار زبان مبدا
+- پشتیبانی از ۱۰۰+ زبان دنیا
+- تشخیص چندین زبان در یک متن
 
-### User Interface
-- **Smart Popup Positioning**: Popup appears below selected text without covering it
-- **Compact Design**: Minimal and clean interface that doesn't interfere with browsing
-- **Responsive Layout**: Works perfectly on all screen sizes
-- **Modern Icons**: Clean, consistent iconography throughout
+### 🔊 صدا و سخنگو
+- پخش صدای متن اصلی
+- پخش صدای ترجمه شده
+- کنترل سرعت پخش صدا
 
-## 📦 Installation
+### 💾 قابلیت‌های اضافی
+- ذخیره تاریخچه ترجمه‌ها
+- کپی کردن ترجمه‌ها
+- جایگزینی متن اصلی با ترجمه
+- تنظیمات کامل و قابل تغییر
 
-1. Download or clone this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode" in the top right
-4. Click "Load unpacked" and select the extension folder
-5. The extension is now installed and ready to use!
+## 📋 نحوه استفاده
 
-## 🎯 How to Use
+### 1️⃣ نصب اکستنشن
+1. فایل‌های اکستنشن رو دانلود کنید
+2. Chrome رو باز کنید و به `chrome://extensions/` برید
+3. حالت "Developer mode" رو فعال کنید
+4. روی "Load unpacked" کلیک کنید
+5. پوشه اکستنشن رو انتخاب کنید
 
-1. **Select Text**: Highlight any text on any webpage
-2. **Click the Icon**: A small icon appears near your selection
-3. **View Translation**: Click the icon to see instant translation
-4. **Use Features**: 
-   - Click speaker icons for text-to-speech
-   - Use copy button to copy translation
-   - Use replace button in editable areas
-   - Access history and settings from the header
+### 2️⃣ استفاده از ترجمه
+1. **انتخاب متن**: روی هر سایت، متن دلخواه رو انتخاب کنید
+2. **کلیک آیکون**: آیکون "888" ظاهر می‌شه - روش کلیک کنید
+3. **انتخاب زبان**: زبان مقصد رو انتخاب کنید
+4. **ترجمه**: دکمه "Translate" رو بزنید
 
-## 🛠️ Technical Details
+### 3️⃣ قابلیت‌های اضافی
+- **🔊 صدا**: دکمه‌های speaker برای شنیدن تلفظ
+- **📋 کپی**: کپی کردن ترجمه در کلیپ‌بورد
+- **🔄 جایگزینی**: جایگزین کردن متن اصلی با ترجمه
+- **📚 تاریخچه**: مشاهده تمام ترجمه‌های قبلی
 
-### Files Structure
-- `manifest.json` - Extension configuration
-- `content.js` - Main functionality and UI
-- `content.css` - Styling for content script
-- `popup.html/js/css` - Extension popup interface
-- `options.html/js` - Settings page
-- `background.js` - Service worker for background tasks
+## ⚙️ تنظیمات
 
-### Technologies Used
-- **Manifest V3**: Latest Chrome extension standard
-- **Vanilla JavaScript**: No external dependencies
-- **Google Translate API**: Free translation service
-- **Chrome Storage API**: Settings and history persistence
-- **Web Speech API**: Text-to-speech functionality
+برای باز کردن تنظیمات:
+1. روی آیکون اکستنشن کلیک کنید
+2. دکمه ⚙️ Settings رو بزنید
 
-### Key Features Implementation
-- **Smart Positioning**: Advanced algorithm to position popup optimally
-- **Multi-Language Detection**: Word-by-word language analysis
-- **History Management**: Efficient storage with automatic cleanup
-- **RTL Support**: Proper text direction handling
-- **Error Handling**: Comprehensive error management and fallbacks
+### تنظیمات موجود:
+- **زبان پیش‌فرض مبدا**: زبان اصلی متن‌ها
+- **زبان پیش‌فرض مقصد**: زبان ترجمه
+- **اندازه فونت**: اندازه متن ترجمه شده
+- **تشخیص چند زبانه**: تشخیص چندین زبان در یک متن
+- **تبدیل به صدا**: فعال/غیرفعال کردن صدا
+- **سرعت صدا**: تنظیم سرعت پخش صدا
 
-## ⚙️ Configuration
+## 🛠️ ساختار فایل‌ها
 
-Access settings by clicking the gear icon in the translation popup:
+```
+📁 Extension Root/
+├── 📄 manifest.json      # تنظیمات اکستنشن
+├── 📄 background.js      # اسکریپت پس‌زمینه
+├── 📄 content.js         # اسکریپت اصلی (1779 خط!)
+├── 📄 content.css        # استایل‌های ظاهری
+├── 📄 popup.html         # رابط کاربری popup
+├── 📄 popup.js           # منطق popup
+├── 📄 options.html       # صفحه تنظیمات
+├── 📄 options.js         # منطق تنظیمات
+├── 🖼️ icon.png           # آیکون اکستنشن
+├── 📄 tailwind.min.css   # استایل‌های UI
+└── 📄 README.md          # این فایل
+```
 
-- **Default Languages**: Set your preferred source and target languages
-- **Translation Font Size**: Choose from 12px to 18px
-- **Multi-Language Detection**: Enable/disable mixed language detection
-- **Text-to-Speech**: Configure speech settings
+## 🌐 زبان‌های پشتیبانی شده
 
-## 📱 Browser Compatibility
+اکستنشن از بیش از **100 زبان** پشتیبانی می‌کنه شامل:
 
-- **Chrome**: Full support (recommended)
-- **Edge**: Full support
-- **Other Chromium browsers**: Should work with minor limitations
+**زبان‌های اصلی:**
+- فارسی (Persian) 🇮🇷
+- عربی (Arabic) 🇸🇦
+- انگلیسی (English) 🇺🇸
+- آلمانی (German) 🇩🇪
+- فرانسوی (French) 🇫🇷
+- اسپانیایی (Spanish) 🇪🇸
+- چینی (Chinese) 🇨🇳
+- ژاپنی (Japanese) 🇯🇵
+- کره‌ای (Korean) 🇰🇷
+- روسی (Russian) 🇷🇺
 
-## 🔒 Privacy
+**و بسیاری زبان‌های دیگر...**
 
-- **No Data Collection**: Extension doesn't collect or store personal data
-- **Local Storage**: All settings and history stored locally
-- **Secure API Calls**: Translation requests made directly to Google Translate
-- **No Tracking**: No analytics or user tracking
+## 🔧 عیب‌یابی
 
-## 🐛 Known Issues & Limitations
+### مشکلات متداول:
 
-- Translation quality depends on Google Translate service
-- Some websites with strict CSP may limit functionality
-- Text-to-speech availability varies by browser and system
-- Large text selections may have slower translation times
+**اکستنشن کار نمی‌کنه:**
+- صفحه رو رفرش کنید (F5)
+- اکستنشن رو غیرفعال/فعال کنید
+- مطمئن شوید که از Google Translate دسترسی دارید
 
-## 🤝 Contributing
+**آیکون ظاهر نمی‌شه:**
+- متن رو دوباره انتخاب کنید
+- چند ثانیه صبر کنید
+- روی جای خالی کلیک کنید و دوباره امتحان کنید
 
-Feel free to contribute to this project:
+**ترجمه کار نمی‌کنه:**
+- اتصال اینترنت رو چک کنید
+- VPN رو خاموش کنید (اگر مشکل داره)
+- صفحه تنظیمات رو باز کنید و دوباره تست کنید
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+## 🎯 کلیدهای میانبر
 
-## 📄 License
+- **Escape**: بستن popup ترجمه
+- **Ctrl+C**: کپی خودکار ترجمه (بعد از ترجمه)
 
-This project is open source and available under the MIT License.
+## 📞 پشتیبانی
 
-## 🆕 Version History
+اگر مشکلی داشتید:
+1. Developer Console رو باز کنید (F12)
+2. تب Console رو بررسی کنید
+3. هر خطایی که می‌بینید رو گزارش دهید
 
-### v1.0.0 (Current)
-- Initial release with full translation functionality
-- Multi-language detection
-- Text-to-speech support
-- Translation history
-- Settings page
-- Smart text replacement
+## 🔄 به‌روزرسانی
 
-## 🙏 Acknowledgments
-
-- Google Translate API for translation services
-- Chrome Extensions team for the platform
-- Open source community for inspiration and resources
+برای به‌روزرسانی اکستنشن:
+1. فایل‌های جدید رو دانلود کنید
+2. پوشه قدیمی رو جایگزین کنید
+3. در صفحه Extensions روی "Reload" کلیک کنید
 
 ---
 
-**Made with ❤️ for better web browsing experience**
+**نکته**: این اکستنشن از Google Translate API استفاده می‌کنه و نیاز به اتصال اینترنت داره.
+
+**حریم خصوصی**: هیچ اطلاعاتی ذخیره نمی‌شه جز تنظیمات محلی شما.
+
+---
+
+🔥 **ساخته شده با ❤️ برای بهتر کردن تجربه ترجمه آنلاین**

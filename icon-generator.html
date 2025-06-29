@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>888 AI Icon Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        canvas { border: 1px solid #ccc; margin: 10px; }
+        .icon-preview { display: flex; gap: 20px; align-items: center; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>888 AI Popup Translator - Icon Generator</h2>
+    
+    <div class="icon-preview">
+        <div>
+            <h3>128x128 (Main Icon)</h3>
+            <canvas id="canvas128" width="128" height="128"></canvas>
+            <br><button onclick="downloadIcon(128)">Download 128x128</button>
+        </div>
+        
+        <div>
+            <h3>48x48 (Medium)</h3>
+            <canvas id="canvas48" width="48" height="48"></canvas>
+            <br><button onclick="downloadIcon(48)">Download 48x48</button>
+        </div>
+        
+        <div>
+            <h3>16x16 (Small)</h3>
+            <canvas id="canvas16" width="16" height="16"></canvas>
+            <br><button onclick="downloadIcon(16)">Download 16x16</button>
+        </div>
+    </div>
+    
+    <button onclick="generateAllIcons()">Generate All Icons</button>
+    <button onclick="downloadMainIcon()">Download Main Icon (icon.png)</button>
+    
+    <script>
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            const center = size / 2;
+            const radius = size * 0.45;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#4f46e5');  // Indigo
+            gradient.addColorStop(1, '#3730a3');  // Darker indigo
+            
+            // Draw circle background
+            ctx.beginPath();
+            ctx.arc(center, center, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Add subtle border
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = size * 0.02;
+            ctx.stroke();
+            
+            // Draw "888" text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${size * 0.25}px Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Add text shadow effect
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowOffsetX = size * 0.01;
+            ctx.shadowOffsetY = size * 0.01;
+            ctx.shadowBlur = size * 0.02;
+            
+            ctx.fillText('888', center, center);
+            
+            // Reset shadow
+            ctx.shadowColor = 'transparent';
+        }
+        
+        function generateAllIcons() {
+            const sizes = [128, 48, 16];
+            sizes.forEach(size => {
+                const canvas = document.getElementById(`canvas${size}`);
+                drawIcon(canvas, size);
+            });
+        }
+        
+        function downloadIcon(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        function downloadMainIcon() {
+            const canvas = document.getElementById('canvas128');
+            const link = document.createElement('a');
+            link.download = 'icon.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Generate icons on page load
+        window.onload = generateAllIcons;
+    </script>
+</body>
+</html> 
